@@ -36,6 +36,15 @@ int command = 0;
 int gridPower = 0;
 Point db("energy");
 
+// Sunrise & Sunset
+#include "time.h"
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 3600;
+const int   daylightOffset_sec = 3600;
+int time = 8;
+int sunrise = 6;
+int sunset = 19;
+
 
 void setup() {
     Serial.begin(115200);
@@ -143,8 +152,34 @@ void buildCommand() {
         command = 0;
     }
     if (newGridData = true) {
-        command = 1;
+        getTime();
+        if (time >= sunrise && time < sunset) {
+            command = 1;
+        }
+        if (time >= sunset || time < sunrise) {
+            command = 2;
+        }
     }
+}
+
+
+void getTime() {
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){
+        Serial.println("F-DT");
+        return;
+    }
+    time = int((&timeinfo, "%H"));
+    int month = int((&timeinfo, "%b"));
+    int dayOfMonth = int((&timeinfo, "%d"));
+    int day = int(((month-1)*30.5)+dayOfMonth);
+    getSunRiseSet(day);   
+}
+
+
+void getSunRiseSet(int day) {
+    sunrise = ();
+    sunset = ();
 }
 
 
