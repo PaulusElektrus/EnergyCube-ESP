@@ -19,7 +19,7 @@
             "includePath": [
                 "/home/anonym/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/tools/sdk/include",
                 "/home/anonym/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/tools/sdk/lwip2/include",
-                "/tmp/arduino/sketches/B18126561FF48F91DAB26030CDBA7D70/core",
+                "/home/anonym/GitHub/EnergyCube-ESP/.build/core",
                 "/home/anonym/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/cores/esp8266",
                 "/home/anonym/.arduino15/packages/esp8266/hardware/esp8266/3.1.2/variants/generic",
                 "/home/anonym/Arduino/libraries/ArduinoJson/src",
@@ -362,7 +362,8 @@
                 "__ATOMIC_ACQ_REL=4",
                 "__ATOMIC_RELEASE=3",
                 "USBCON"
-            ]
+            ],
+            "compileCommands": "${workspaceFolder}/.build/compile_commands.json"
         }
     ]
 }
