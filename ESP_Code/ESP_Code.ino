@@ -40,9 +40,11 @@ int gridPower = 0;
 
 // Sunrise & Sunset
 #include "time.h"
-#include "Sun.h"
 const char* ntpServer = "pool.ntp.org";
 const char* TZ = "CET-1CEST,M3.5.0,M10.5.0/3";
+const float pi = 3.14159265;
+const float lat = 48.13;
+const float lon = 11.57;
 int hourTime = 8;
 int sunrise = 6;
 int sunset = 19;
@@ -62,7 +64,6 @@ void setup() {
     db.addTag("device", "energy_cube");
 
     configTime(TZ, ntpServer);
-    Sun sun(48.13, 11.57);
 }
 
 
@@ -179,28 +180,47 @@ void buildCommand() {
 
 void getTime() {
 // https://werner.rothschopf.net/microcontroller/202103_arduino_esp32_ntp_en.htm
-    struct tm timeinfo;
+    tm timeinfo;
+    time_t now;
     if(!getLocalTime(&timeinfo)){
         Serial.println("F-DT");
         return;
     }
     hourTime = timeinfo.tm_hour;
-    int day = timeinfo.tm_yday + 1;
     bool summertime = timeinfo.tm_isdst;
-    getSunRiseSet(day, summertime);  
-    Serial.println(day); 
-    Serial.println(summertime); 
+    getRiseSet(now);
 }
 
 
-void getSunRiseSet(int day, bool summertime) {
-// https://arduinodiy.wordpress.com/2017/03/07/calculating-sunrise-and-sunset-on-arduino-or-other-microcontroller/
-    sunrise = int((399+85*cos(day+8/58.09))/60);
-    sunset = int((1127.5-148.5*cos(day+8/58.09))/60);
-    if (summertime == 1) {
-        sunrise = sunrise + 1;
-        sunset = sunset + 1;
-    }
+void getRiseSet(unsigned long unixTime) {
+  // Convert Julian day to Unix Timestamp
+  unsigned long Jdate = (unsigned long) unixTime / 86400.0 + 2440587.5;
+  // Number of days since Jan 1st, 2000 12:00
+  float n = (float)Jdate - 2451545.0 + 0.0008;
+  // Mean solar noon
+  float Jstar = -lon / 360 + n;
+  // Solar mean anomaly
+  float M = fmod((357.5291 + 0.98560028 * Jstar), 360);
+  // Equation of the center
+  float C = 1.9148 * sin(M / 360 * 2 * pi) + 0.02 * sin(2 * M / 360 * 2 * pi) + 0.0003 * sin(3 * M * 360 * 2 * pi);
+  // Ecliptic longitude
+  float lambda = fmod((M + C + 180 + 102.9372), 360);
+  // Solar transit
+  float Jtransit = Jstar + (0.0053 * sin(M / 360.0 * 2.0 * pi) - 0.0069 * sin(2.0 * (lambda / 360.0 * 2.0 * pi)));
+  // Declination of the Sun
+  float delta = asin(sin(lambda / 360 * 2 * pi) * sin(23.44 / 360 * 2 * pi)) / (2 * pi) * 360;
+  // Hour angle
+  float omega0 = 360 / (2 * pi) * acos((sin(-0.83 / 360 * 2 * pi) - sin(lat / 360 * 2 * pi) * sin(delta / 360 * 2 * pi)) / (cos(lat / 360 * 2 * pi) * cos(delta / 360 * 2 * pi)));
+  // Julian day sunrise, sunset
+  float Jset = Jtransit + omega0 / 360;
+  float Jrise = Jtransit - omega0 / 360;
+  // Convert to Unix Timestamp
+  unsigned long unixRise = Jrise * 86400 + 946728000;
+  unsigned long unixSet = Jset * 86400 + 946728000;
+  Serial.println(unixRise);
+  Serial.println(unixSet);
+  sunrise = unixRise;
+  sunset = unixSet; 
 }
 
 
