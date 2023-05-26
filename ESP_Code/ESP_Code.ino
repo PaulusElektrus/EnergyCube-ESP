@@ -1,21 +1,20 @@
 // Shelly Json
 #include <ArduinoJson.h>
-String shellyUrl = "http://192.168.0.+++/rpc/EM.GetStatus?id=0";
-// https://arduinojson.org/v6/api/jsonobject/begin_end/
+const String shellyUrl = "http://192.168.0.+++/rpc/EM.GetStatus?id=0";
 
 // W-Lan & Webserver
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
-#define WIFI_SSID "+++"
-#define WIFI_PASSWORD "+++"
+const String WIFI_SSID = "+++";
+const String WIFI_PASSWORD = "+++";
 
 // InfluxDB
 #include <InfluxDbClient.h>
-#define INFLUXDB_URL "+++"
-#define INFLUXDB_DB_NAME "+++"
-#define INFLUXDB_USER "+++"
-#define INFLUXDB_PASSWORD "+++"
+const String INFLUXDB_URL = "+++";
+const String INFLUXDB_DB_NAME = "+++";
+const String INFLUXDB_USER = "+++";
+const String INFLUXDB_PASSWORD = "+++";
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_DB_NAME);
 
 // Incoming Communication
@@ -29,19 +28,22 @@ int statusFromArduino = 0;
 float uBatt = 0.0;
 float iBatt = 0.0;
 int bsPower = 0;
+int percentBatt = 50;
+float maxUBatt = 49.2;
+float minUBatt = 44.4;
+Point db("energy");
 
 // Outgoing Communication
 bool newGridData = false;
 int command = 0;
 int gridPower = 0;
-Point db("energy");
 
 // Sunrise & Sunset
 #include "time.h"
+#include "Sun.h"
 const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 3600;
-const int   daylightOffset_sec = 3600;
-int time = 8;
+const char* TZ = "CET-1CEST,M3.5.0,M10.5.0/3";
+int hourTime = 8;
 int sunrise = 6;
 int sunset = 19;
 
@@ -55,9 +57,12 @@ void setup() {
     }
     Serial.println(WiFi.localIP());
 
-    // InfluxDB V1.0
+    // InfluxDB Version 1.0
     client.setConnectionParamsV1(INFLUXDB_URL, INFLUXDB_DB_NAME, INFLUXDB_USER, INFLUXDB_PASSWORD);
     db.addTag("device", "energy_cube");
+
+    configTime(TZ, ntpServer);
+    Sun sun(48.13, 11.57);
 }
 
 
@@ -70,12 +75,16 @@ void loop() {
         buildCommand();
         sendCommand();
         sendToServer();
+        Serial.println(hourTime);
+        Serial.println(sunrise); 
+        Serial.println(sunset);  
         newData = false;
     }  
 }
 
 
 void recvWithStartEndMarkers() {
+// https://forum.arduino.cc/t/serial-input-basics-updated/382007/3
     static boolean recvInProgress = false;
     static byte ndx = 0;
     char startMarker = '<';
@@ -107,7 +116,6 @@ void recvWithStartEndMarkers() {
 
 
 void parseData() {
-
     char * strtokIndx;
 
     strtokIndx = strtok(tempChars,",");
@@ -120,10 +128,16 @@ void parseData() {
     iBatt = atof(strtokIndx);
 
     bsPower = uBatt * iBatt;
+
+    if (uBatt <= minUBatt) {
+        percentBatt = 0;
+    }
+    else percentBatt = ((uBatt - minUBatt) / (maxUBatt - minUBatt)*100);
 }
 
 
 void getGridPower() {
+// https://arduinojson.org/v6/api/jsonobject/begin_end/
     WiFiClient client;
     HTTPClient http;
     http.begin(client,shellyUrl);
@@ -153,10 +167,10 @@ void buildCommand() {
     }
     if (newGridData = true) {
         getTime();
-        if (time >= sunrise && time < sunset) {
+        if (hourTime >= sunrise && hourTime <= sunset) {
             command = 1;
         }
-        if (time >= sunset || time < sunrise) {
+        else{
             command = 2;
         }
     }
@@ -164,22 +178,29 @@ void buildCommand() {
 
 
 void getTime() {
+// https://werner.rothschopf.net/microcontroller/202103_arduino_esp32_ntp_en.htm
     struct tm timeinfo;
     if(!getLocalTime(&timeinfo)){
         Serial.println("F-DT");
         return;
     }
-    time = int((&timeinfo, "%H"));
-    int month = int((&timeinfo, "%b"));
-    int dayOfMonth = int((&timeinfo, "%d"));
-    int day = int(((month-1)*30.5)+dayOfMonth);
-    getSunRiseSet(day);   
+    hourTime = timeinfo.tm_hour;
+    int day = timeinfo.tm_yday + 1;
+    bool summertime = timeinfo.tm_isdst;
+    getSunRiseSet(day, summertime);  
+    Serial.println(day); 
+    Serial.println(summertime); 
 }
 
 
-void getSunRiseSet(int day) {
-    sunrise = ();
-    sunset = ();
+void getSunRiseSet(int day, bool summertime) {
+// https://arduinodiy.wordpress.com/2017/03/07/calculating-sunrise-and-sunset-on-arduino-or-other-microcontroller/
+    sunrise = int((399+85*cos(day+8/58.09))/60);
+    sunset = int((1127.5-148.5*cos(day+8/58.09))/60);
+    if (summertime == 1) {
+        sunrise = sunrise + 1;
+        sunset = sunset + 1;
+    }
 }
 
 
@@ -195,6 +216,7 @@ void sendToServer() {
     db.addField("uBatt", uBatt);
     db.addField("iBatt", iBatt);
     db.addField("bsPower", bsPower);
+    db.addField("percentBatt", percentBatt);
     client.pointToLineProtocol(db);
     if (!client.writePoint(db)) {
         Serial.print("F_ID: ");
