@@ -29,8 +29,8 @@ float uBatt = 0.0;
 float iBatt = 0.0;
 int bsPower = 0;
 int percentBatt = 50;
-float maxUBatt = 49.2;
-float minUBatt = 44.4;
+float const maxUBatt = 50;
+float const minUBatt = 44.4;
 Point db("energy");
 
 // Outgoing Communication
