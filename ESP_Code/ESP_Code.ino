@@ -73,10 +73,8 @@ void setup() {
 void loop() { 
     recvWithStartEndMarkers();
     if (newData == true) {
-        strcpy(tempChars, receivedChars);
         parseData();
         getGridPower();
-        buildCommand();
         sendCommand();
         sendToServer();
         newData = false;
@@ -117,6 +115,8 @@ void recvWithStartEndMarkers() {
 
 
 void parseData() {
+    strcpy(tempChars, receivedChars);
+
     char * strtokIndx;
 
     strtokIndx = strtok(tempChars,",");
