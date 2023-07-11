@@ -38,18 +38,10 @@ bool newGridData = false;
 int command = 0;
 int gridPower = 0;
 
-// Sunrise & Sunset
+// Time
 #include "time.h"
-#include <sunset.h>
-SunSet sun;
 const char* ntpServer = "pool.ntp.org";
 const char* TZ = "CET-1CEST,M3.5.0,M10.5.0/3";
-const float lat = 48.13;
-const float lon = 11.57;
-const int tzSunset = 1;
-int hourTime = 8;
-int sunrise = 6;
-int sunset = 19;
 
 
 void setup() {
@@ -66,7 +58,6 @@ void setup() {
     db.addTag("device", "energy_cube");
 
     configTime(TZ, ntpServer);
-    sun.setPosition(lat, lon, tzSunset);
 }
 
 
@@ -155,7 +146,7 @@ void getGridPower() {
         newGridData = true;
     }
     else {
-        Serial.print("F_DS");
+        statusFromArduino = 10;
         newGridData = false;
     }
     http.end();
@@ -163,41 +154,12 @@ void getGridPower() {
 
 
 void buildCommand() {
-    if (newGridData = false) {
+    if (newGridData == false) {
         command = 0;
     }
-    if (newGridData = true) {
-        getTime();
-        if (hourTime >= sunrise && hourTime < sunset) {
-            command = 1;
-        }
-        else{
-            command = 2;
-        }
+    if (newGridData == true) {
+        command = 1;
     }
-}
-
-
-void getTime() {
-// https://werner.rothschopf.net/microcontroller/202103_arduino_esp32_ntp_en.htm
-    tm timeinfo;
-    time_t now;
-    if(!getLocalTime(&timeinfo)){
-        Serial.println("F-DT");
-        return;
-    }
-    hourTime = timeinfo.tm_hour;
-    int d = timeinfo.tm_mday;
-    int m = timeinfo.tm_mon + 1;
-    int y = timeinfo.tm_year + 1900;
-    bool summertime = timeinfo.tm_isdst;
-// https://github.com/buelowp/sunset
-    sun.setCurrentDate(y,m,d);
-    if (summertime == 1) {sun.setTZOffset(2);}
-    double sunriseNautical = sun.calcSunrise();
-    double sunsetNautical = sun.calcSunset();
-    sunrise = int(sunriseNautical / 60);
-    sunset = int(sunsetNautical / 60);
 }
 
 
@@ -214,9 +176,10 @@ void sendToServer() {
     db.addField("iBatt", iBatt);
     db.addField("bsPower", bsPower);
     db.addField("percentBatt", percentBatt);
+    db.addField("Household", gridPower);
     client.pointToLineProtocol(db);
     if (!client.writePoint(db)) {
-        Serial.print("F_ID: ");
+        Serial.print("failureWithDatabase: ");
         Serial.println(client.getLastErrorMessage());
     }
 }

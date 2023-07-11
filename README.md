@@ -18,23 +18,12 @@
 
     Die Kommunikation zwischen den Mikrocontrollern erfolgt über UART. 
 
-    #### - Test 2
-
     Die Kommunikation läuft in Version 1.0 nach folgenden Regeln ab:
 
         1) Der Arduino sendet eine Anfrage an den ESP mit seinem aktuellen Status und der aktuellen Batterie Spannung / Strom
         2) Der ESP antwortet darauf mit einem Befehl und der aktuellen Haushaltsleistung der Shelly
     
     ![Screenshot](Arduino_ESP_Communication_Advanced.png)
-
-
-    #### - Test 1
-
-    Ein Screenshot des Logic Analyzers welchen ich zur Überwachung der Kommunikation benutze:
-
-    ![Screenshot](Arduino_ESP_Communication.png)
-    
-    Man erkennt in den < > geschweiften Klammern die jeweils übertragene Nachricht und danach als Empfangsbestätigung (auch als Debug und zu Demonstrationszwecken verwendet) die Ausgabe des jeweiligen Mikrocontrollers im richtigen Datenformat mit Vorzeichen.
 
 - ### Statusbefehle
 
@@ -51,6 +40,7 @@
         - 4 = Battery Empty
         - 5 = Failure: Safety parameters exceeded
         - 7 = Failure: ADC not working
+        - 10 = No Shelly Data from Household
 
     - Außerdem:
         - Charging = negative Power & Ampere
