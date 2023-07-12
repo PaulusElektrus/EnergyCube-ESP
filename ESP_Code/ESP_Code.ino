@@ -1,15 +1,15 @@
-// Shelly Json
+/// Shelly Json //
 #include <ArduinoJson.h>
 const String shellyUrl = "http://192.168.0.+++/rpc/EM.GetStatus?id=0";
 
-// W-Lan & Webserver
+// W-Lan & Webserver //
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 const String WIFI_SSID = "+++";
 const String WIFI_PASSWORD = "+++";
 
-// InfluxDB
+// InfluxDB //
 #include <InfluxDbClient.h>
 const String INFLUXDB_URL = "+++";
 const String INFLUXDB_DB_NAME = "+++";
@@ -17,13 +17,13 @@ const String INFLUXDB_USER = "+++";
 const String INFLUXDB_PASSWORD = "+++";
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_DB_NAME);
 
-// Incoming Communication
+// Incoming Communication //
 boolean newData = false;
 const byte numChars = 32;
 char receivedChars[numChars];
 char tempChars[numChars];
 
-// Incoming Data
+// Incoming Data //
 int statusFromArduino = 0;
 float uBatt = 0.0;
 float iBatt = 0.0;
@@ -33,17 +33,18 @@ float const maxUBatt = 50;
 float const minUBatt = 44.4;
 Point db("energy");
 
-// Outgoing Communication
+// Outgoing Communication //
 bool newGridData = false;
 int command = 0;
 int gridPower = 0;
 
-// Time
+// Time //
 #include "time.h"
 const char* ntpServer = "pool.ntp.org";
 const char* TZ = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 
+// Setup runs once at boot //
 void setup() {
     Serial.begin(115200);
 
@@ -59,8 +60,10 @@ void setup() {
 
     configTime(TZ, ntpServer);
 }
+///////////////////////////////////////////////////
 
 
+// Main Loop //
 void loop() { 
     recvWithStartEndMarkers();
     if (newData == true) {
@@ -71,10 +74,12 @@ void loop() {
         newData = false;
     }  
 }
+///////////////////////////////////////////////////
 
 
+// Receiving Data from Arduino //
 void recvWithStartEndMarkers() {
-// https://forum.arduino.cc/t/serial-input-basics-updated/382007/3
+// Code from: https://forum.arduino.cc/t/serial-input-basics-updated/382007/3
     static boolean recvInProgress = false;
     static byte ndx = 0;
     char startMarker = '<';
@@ -105,6 +110,7 @@ void recvWithStartEndMarkers() {
 }
 
 
+// Parse received data
 void parseData() {
     strcpy(tempChars, receivedChars);
 
@@ -126,10 +132,12 @@ void parseData() {
     }
     else percentBatt = ((uBatt - minUBatt) / (maxUBatt - minUBatt)*100);
 }
+///////////////////////////////////////////////////
 
 
+// Get grid power from Shelly //
 void getGridPower() {
-// https://arduinojson.org/v6/api/jsonobject/begin_end/
+// Code from: https://arduinojson.org/v6/api/jsonobject/begin_end/
     WiFiClient client;
     HTTPClient http;
     http.begin(client,shellyUrl);
@@ -151,8 +159,10 @@ void getGridPower() {
     }
     http.end();
 }
+///////////////////////////////////////////////////
 
 
+// Check if battery storage can be used //
 void buildCommand() {
     if (newGridData == false) {
         command = 0;
@@ -161,14 +171,18 @@ void buildCommand() {
         command = 1;
     }
 }
+///////////////////////////////////////////////////
 
 
+// Send command to Arduino //
 void sendCommand() {
     String outgoingData = "<" + String(command) + "," + String(gridPower) + ">";
     Serial.print(outgoingData);
 }
+///////////////////////////////////////////////////
 
 
+// Send data to InfluxDB Database //
 void sendToServer() {
     db.clearFields();
     db.addField("Status", statusFromArduino);
@@ -183,3 +197,4 @@ void sendToServer() {
         Serial.println(client.getLastErrorMessage());
     }
 }
+///////////////////////////////////////////////////
