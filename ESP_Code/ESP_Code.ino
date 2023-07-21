@@ -40,109 +40,123 @@ int gridPower = 0;
 
 // Time //
 #include "time.h"
-const char* ntpServer = "pool.ntp.org";
-const char* TZ = "CET-1CEST,M3.5.0,M10.5.0/3";
-
+const char *ntpServer = "pool.ntp.org";
+const char *TZ = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 // Setup runs once at boot //
-void setup() {
+void setup()
+{
     Serial.begin(115200);
 
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         delay(500);
     }
     Serial.println(WiFi.localIP());
 
     // InfluxDB Version 1.0
-    client.setConnectionParamsV1(INFLUXDB_URL, INFLUXDB_DB_NAME, INFLUXDB_USER, INFLUXDB_PASSWORD);
+    client.setConnectionParamsV1(INFLUXDB_URL, INFLUXDB_DB_NAME, \
+                                 INFLUXDB_USER, INFLUXDB_PASSWORD);
     db.addTag("device", "energy_cube");
 
     configTime(TZ, ntpServer);
 }
 ///////////////////////////////////////////////////
 
-
 // Main Loop //
-void loop() { 
+void loop()
+{
     recvWithStartEndMarkers();
-    if (newData == true) {
+    if (newData == true)
+    {
         parseData();
         getGridPower();
         sendCommand();
         sendToServer();
         newData = false;
-    }  
+    }
 }
 ///////////////////////////////////////////////////
 
-
 // Receiving Data from Arduino //
-void recvWithStartEndMarkers() {
-// Code from: https://forum.arduino.cc/t/serial-input-basics-updated/382007/3
+void recvWithStartEndMarkers()
+{
+    // Code from: 
+    // https://forum.arduino.cc/t/serial-input-basics-updated/382007/3
     static boolean recvInProgress = false;
     static byte ndx = 0;
     char startMarker = '<';
     char endMarker = '>';
     char rc;
 
-    while (Serial.available() > 0 && newData == false) {
+    while (Serial.available() > 0 && newData == false)
+    {
         rc = Serial.read();
-        if (recvInProgress == true) {
-            if (rc != endMarker) {
+        if (recvInProgress == true)
+        {
+            if (rc != endMarker)
+            {
                 receivedChars[ndx] = rc;
                 ndx++;
-                if (ndx >= numChars) {
+                if (ndx >= numChars)
+                {
                     ndx = numChars - 1;
                 }
             }
-            else {
+            else
+            {
                 receivedChars[ndx] = '\0';
                 recvInProgress = false;
                 ndx = 0;
                 newData = true;
             }
         }
-        else if (rc == startMarker) {
+        else if (rc == startMarker)
+        {
             recvInProgress = true;
         }
     }
 }
 
-
 // Parse received data
-void parseData() {
+void parseData()
+{
     strcpy(tempChars, receivedChars);
 
-    char * strtokIndx;
+    char *strtokIndx;
 
-    strtokIndx = strtok(tempChars,",");
+    strtokIndx = strtok(tempChars, ",");
     statusFromArduino = atoi(strtokIndx);
 
     strtokIndx = strtok(NULL, ",");
-    uBatt = atof(strtokIndx); 
+    uBatt = atof(strtokIndx);
 
     strtokIndx = strtok(NULL, ",");
     iBatt = atof(strtokIndx);
 
     bsPower = uBatt * iBatt;
 
-    if (uBatt <= minUBatt) {
+    if (uBatt <= minUBatt)
+    {
         percentBatt = 0;
     }
-    else percentBatt = ((uBatt - minUBatt) / (maxUBatt - minUBatt)*100);
+    else
+        percentBatt = ((uBatt - minUBatt) / (maxUBatt - minUBatt) * 100);
 }
 ///////////////////////////////////////////////////
 
-
 // Get grid power from Shelly //
-void getGridPower() {
-// Code from: https://arduinojson.org/v6/api/jsonobject/begin_end/
+void getGridPower()
+{
+    // Code from: 
+    // https://arduinojson.org/v6/api/jsonobject/begin_end/
     WiFiClient client;
     HTTPClient http;
-    http.begin(client,shellyUrl);
+    http.begin(client, shellyUrl);
     int httpCode = http.GET();
-    if (httpCode > 0) {
+    if (httpCode > 0)
+    {
         String payload = http.getString();
         StaticJsonDocument<768> doc;
         deserializeJson(doc, payload);
@@ -153,7 +167,8 @@ void getGridPower() {
         gridPower = it->value().as<int>();
         newGridData = true;
     }
-    else {
+    else
+    {
         statusFromArduino = 10;
         newGridData = false;
     }
@@ -161,29 +176,32 @@ void getGridPower() {
 }
 ///////////////////////////////////////////////////
 
-
 // Check if battery storage can be used //
-void buildCommand() {
-    if (newGridData == false) {
+void buildCommand()
+{
+    if (newGridData == false)
+    {
         command = 0;
     }
-    if (newGridData == true) {
+    if (newGridData == true)
+    {
         command = 1;
     }
 }
 ///////////////////////////////////////////////////
 
-
 // Send command to Arduino //
-void sendCommand() {
-    String outgoingData = "<" + String(command) + "," + String(gridPower) + ">";
+void sendCommand()
+{
+    String outgoingData = "<" + String(command) + "," \
+                           + String(gridPower) + ">";
     Serial.print(outgoingData);
 }
 ///////////////////////////////////////////////////
 
-
 // Send data to InfluxDB Database //
-void sendToServer() {
+void sendToServer()
+{
     db.clearFields();
     db.addField("Status", statusFromArduino);
     db.addField("uBatt", uBatt);
@@ -192,7 +210,8 @@ void sendToServer() {
     db.addField("percentBatt", percentBatt);
     db.addField("Household", gridPower);
     client.pointToLineProtocol(db);
-    if (!client.writePoint(db)) {
+    if (!client.writePoint(db))
+    {
         Serial.print("failureWithDatabase: ");
         Serial.println(client.getLastErrorMessage());
     }
