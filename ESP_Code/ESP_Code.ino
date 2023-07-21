@@ -142,7 +142,8 @@ void parseData()
         percentBatt = 0;
     }
     else
-        percentBatt = ((uBatt - minUBatt) / (maxUBatt - minUBatt) * 100);
+        percentBatt = ((uBatt - minUBatt) / (maxUBatt - minUBatt) \
+                       * 100);
 }
 ///////////////////////////////////////////////////
 
